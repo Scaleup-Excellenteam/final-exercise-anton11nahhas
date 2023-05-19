@@ -1,7 +1,11 @@
 from pptx import Presentation
 import os
+import openai
+import asyncio
+import json
 
 ERRORMSG = "Something is wrong: "
+API_KEY = "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"
 
 # C:\Users\User\Downloads\End of course exercise - kickof - upload (1).pptx
 # C:\Users\User\Desktop\bigDataSeminar\recommendationSystems.pptx
@@ -14,6 +18,7 @@ ERRORMSG = "Something is wrong: "
 #     print()
 # break
 
+
 def validatePath(path):
     presentation = None
 
@@ -22,7 +27,7 @@ def validatePath(path):
             presentation = Presentation(path)
         except Exception as e:
             print(ERRORMSG + "the path provided is not valid")
-            raise e  # Raise the exception to be handled in the calling code
+            raise e
     else:
         print(ERRORMSG + "the path provided does not exist")
 
@@ -40,16 +45,14 @@ def parsePptx(prs):
         except AttributeError:
             slide_dict['title'] = "Untitled Slide"
 
-        slide_content = []
-
-        for shape in slide.shapes:
-            if shape.is_placeholder:
-                if shape.has_text_frame:
-                    for paragraph in shape.text_frame.paragraphs:
-                        slide_content.append(paragraph.text)
+        slide_content = [
+            paragraph.text
+            for shape in slide.shapes
+            if shape.is_placeholder and shape.has_text_frame
+            for paragraph in shape.text_frame.paragraphs
+        ]
 
         slide_dict['content'] = slide_content
-
         slide_data[f"Slide {slide_index + 1}"] = slide_dict
 
     return slide_data
@@ -64,30 +67,52 @@ def handleInput():
             return slide_data
 
 
-def createPrompt(data):
-    prompt_prefix = "So I have this Power Point Presentation that I got in class, I tried reading it and could not " \
-                    "understand a thing, can you help understand it?"
-    prompt_body = " "
-    for slide_title, slide_info in data.items():
-        slide_content = " "
-        for content in slide_info['content']:
-            slide_content += content
-        prompt_body += f"Here is {slide_title}, and that is the title of the slide {slide_info['title']}, the slide " \
-                       f"talks about {slide_content}. "
-
-    return prompt_prefix + prompt_body
+def createPrompt(slide_data):
+    prompts = []
+    for slide_title, slide_info in slide_data.items():
+        slide_content = " ".join(slide_info['content'])
+        slide_prompt = f"Here is {slide_title}, and that is the title of the slide {slide_info['title']}, the slide " \
+                       f"talks about {slide_content}."
+        prompts.append(slide_prompt)
+    return prompts
 
 
-#def request_from_api(prompt):
+def request_from_api(prompt):
+    openai.api_key = API_KEY
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=100
+    )
+    return response.choices[0].text.strip()
 
+
+def generateExplanations(prompts):
+    explanations = {}
+    for slide_index, prompt in enumerate(prompts):
+        response = request_from_api(prompt)
+        explanations[f"Slide {slide_index + 1}"] = response
+    return explanations
+
+
+def saveExplanations(explanations):
+    output_file = "explanations.json"
+    with open(output_file, "w") as file:
+        
+        cleaned_explanations = {
+            slide_title: explanation.replace('\n', '')
+            for slide_title, explanation in explanations.items()
+        }
+        json.dump(cleaned_explanations, file, indent=4)
+
+    print(f"Explanations saved to {output_file}")
 
 
 def main():
-    parsed_data = handleInput()
-
-    prompt = createPrompt(parsed_data)
-    print(prompt)
-    #request_from_api(prompt)
+    slide_data = handleInput()
+    prompts = createPrompt(slide_data)
+    explanations = generateExplanations(prompts)
+    saveExplanations(explanations)
 
 
 if __name__ == '__main__':
