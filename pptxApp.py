@@ -3,7 +3,6 @@ import os
 
 ERRORMSG = "Something is wrong: "
 
-
 # C:\Users\User\Downloads\End of course exercise - kickof - upload (1).pptx
 # C:\Users\User\Desktop\bigDataSeminar\recommendationSystems.pptx
 # for slide_title, slide_info in slide_data.items():
@@ -65,22 +64,22 @@ def handleInput():
             return slide_data
 
 
-# for slide_title, slide_info in slide_data.items():
-#     print("Slide:", slide_title)
-#     print("Title:", slide_info['title'])
-#     print("Content:")
-#     for content in slide_info['content']:
-#         print(content)
-#     print()
 def createPrompt(data):
     prompt_prefix = "So I have this Power Point Presentation that I got in class, I tried reading it and could not " \
                     "understand a thing, can you help understand it?"
     prompt_body = " "
     for slide_title, slide_info in data.items():
+        slide_content = " "
+        for content in slide_info['content']:
+            slide_content += content
         prompt_body += f"Here is {slide_title}, and that is the title of the slide {slide_info['title']}, the slide " \
-                       f"talks about {slide_info['content']}"
+                       f"talks about {slide_content}. "
 
     return prompt_prefix + prompt_body
+
+
+#def request_from_api(prompt):
+
 
 
 def main():
@@ -88,6 +87,7 @@ def main():
 
     prompt = createPrompt(parsed_data)
     print(prompt)
+    #request_from_api(prompt)
 
 
 if __name__ == '__main__':
