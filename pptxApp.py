@@ -5,18 +5,10 @@ import asyncio
 import json
 
 ERRORMSG = "Something is wrong: "
-API_KEY = "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"
+API_KEY = "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"
 
 # C:\Users\User\Downloads\End of course exercise - kickof - upload (1).pptx
 # C:\Users\User\Desktop\bigDataSeminar\recommendationSystems.pptx
-# for slide_title, slide_info in slide_data.items():
-#     print("Slide:", slide_title)
-#     print("Title:", slide_info['title'])
-#     print("Content:")
-#     for content in slide_info['content']:
-#         print(content)
-#     print()
-# break
 
 
 def validatePath(path):
@@ -60,20 +52,30 @@ def parsePptx(prs):
 
 def handleInput():
     while True:
+        presentaion_title = input("Please enter the presentation's title: ")
         pptxPath = input("Please provide the path of the PowerPoint you want to be explained: ")
-        prs = validatePath(pptxPath)
+        input_data = {
+            "title": presentaion_title,
+            "path": pptxPath,
+        }
+        prs = validatePath(input_data['path'])
         if prs:
             slide_data = parsePptx(prs)
-            return slide_data
+            input_data.update({'slide_data': slide_data})
+            return input_data
 
 
-def createPrompt(slide_data):
+def createPrompt(slide_data, presentation_title):
     prompts = []
+    introduction = f"I have this PowerPoint presentation titled '{presentation_title}', and it covers various topics. " \
+                   f"Let's dive into the slides:\n"
+    prompts.append(introduction)
+
     for slide_title, slide_info in slide_data.items():
         slide_content = " ".join(slide_info['content'])
-        slide_prompt = f"Here is {slide_title}, and that is the title of the slide {slide_info['title']}, the slide " \
-                       f"talks about {slide_content}."
+        slide_prompt = f"Slide '{slide_title}': {slide_info['title']}\n{slide_content}"
         prompts.append(slide_prompt)
+
     return prompts
 
 
@@ -98,7 +100,7 @@ def generateExplanations(prompts):
 def saveExplanations(explanations):
     output_file = "explanations.json"
     with open(output_file, "w") as file:
-        
+
         cleaned_explanations = {
             slide_title: explanation.replace('\n', '')
             for slide_title, explanation in explanations.items()
@@ -110,7 +112,7 @@ def saveExplanations(explanations):
 
 def main():
     slide_data = handleInput()
-    prompts = createPrompt(slide_data)
+    prompts = createPrompt(slide_data["slide_data"], slide_data["title"])
     explanations = generateExplanations(prompts)
     saveExplanations(explanations)
 
