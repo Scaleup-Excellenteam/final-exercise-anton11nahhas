@@ -1,11 +1,12 @@
+import asyncio
+
 from pptx import Presentation
 import os
 import openai
-import asyncio
 import json
 
-ERRORMSG = "Something is wrong: "
-API_KEY = " "  # NOTE: PLEASE PROVIDE YOUR API KEY HERE, IF I SHARE MINE IT GETS DISABLED!
+ERROR_MESSAGE = "Something is wrong: "
+openai.api_key = os.environ.get('API_KEY')
 
 
 # C:\Users\User\Downloads\End of course exercise - kickof - upload (1).pptx
@@ -16,20 +17,20 @@ def validatePath(path):
     """
     this method receives a path and validates if the path is valid or not, if not it provides
     a message to the user and asks him again for a new path, this procedure is repeated until the user
-    provides a valid powerpoint path.
-    :param path: path to power point presentation file
+    provides a valid power-point path.
+    :param path: path to power-point presentation file
     :return: returns all the data in the power-point
     """
     presentation = None
 
     if os.path.exists(path):  # check if the path exists
         try:
-            presentation = Presentation(path)  # check if the path is a powerpoint path
+            presentation = Presentation(path)  # check if the path is a power-point path
         except Exception as e:  # throw exception if encountered an error
-            print(ERRORMSG + "the path provided is not valid")
+            print(ERROR_MESSAGE + "the path provided is not valid")
             raise e
     else:
-        print(ERRORMSG + "the path provided does not exist")
+        print(ERROR_MESSAGE + "the path provided does not exist")
 
     return presentation
 
@@ -37,27 +38,27 @@ def validatePath(path):
 def parsePptx(prs):
     """
     this method receives the presentation and parses the data into a suitable data structure, it first stores
-    the number of the slide, then the title of the slide, (some pptx slides dont have titles, if so, instead we write
-    Untitled slides to prevent errors), and then it extracts all of the contents in the slide.
+    the number of the slide, then the title of the slide, (some pptx slides don't have titles, if so, instead we write
+    Untitled slides to prevent errors), and then it extracts all the contents in the slide.
     :param prs: a valid presentation file
-    :return: returns the data structure that contains all of the parsed data
+    :return: returns the data structure that contains all the parsed data
     """
     slide_data = {}
 
-    for slide_index, slide in enumerate(prs.slides):  # loop through slides
+    for slide_index, slide in enumerate(prs.slides):
         slide_dict = {}
 
         try:
-            slide_dict['title'] = slide.title.text  # extract the title
+            slide_dict['title'] = slide.title.text
         except AttributeError:
             slide_dict['title'] = "Untitled Slide"
 
-        slide_content = [
-            paragraph.text
-            for shape in slide.shapes  # loop through the slides and extract texts
-            if shape.is_placeholder and shape.has_text_frame
-            for paragraph in shape.text_frame.paragraphs
-        ]
+        slide_content = []
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        slide_content.append(run.text.strip())
 
         slide_dict['content'] = slide_content
         slide_data[f"Slide {slide_index + 1}"] = slide_dict
@@ -65,15 +66,23 @@ def parsePptx(prs):
     return slide_data
 
 
+def get_presentation_title():
+    return input("Please enter the presentation's title: ")
+
+
+def get_presentation_path():
+    return input("Please provide the path of the PowerPoint you want to be explained: ")
+
+
 def handleInput():
     """
     this method loops until the user provides valid input, it first asks for the title of the presentation, then
-    asks for the path, calidates the path, parses the data to make it ready for the ai requests.
+    asks for the path, validates the path, parses the data to make it ready for the AI requests.
     :return: data structure container: title, path and the parsed data.
     """
     while True:
-        presentaion_title = input("Please enter the presentation's title: ")
-        pptxPath = input("Please provide the path of the PowerPoint you want to be explained: ")
+        presentaion_title = get_presentation_title()
+        pptxPath = get_presentation_path()
         input_data = {
             "title": presentaion_title,
             "path": pptxPath,
@@ -85,7 +94,7 @@ def handleInput():
             return input_data
 
 
-def createPrompt(slide_data, presentation_title):
+def create_prompt(slide_data, presentation_title):
     """
     this method receives the parsed data and the title of the presentation, builds a suitable prompt to send
     to the ai engine. the title is used in every slide in order to maintain the main subject of the presentation.
@@ -95,7 +104,8 @@ def createPrompt(slide_data, presentation_title):
     :return:
     """
     prompts = []
-    introduction = f"I have this PowerPoint presentation titled '{presentation_title}', and it covers various topics. " \
+
+    introduction = f"I have this PowerPoint presentation titled '{presentation_title}', and it covers various topics." \
                    f"Let's dive into the slides:\n"
     prompts.append(introduction)  # build the intro of the prompt
 
@@ -107,42 +117,58 @@ def createPrompt(slide_data, presentation_title):
     return prompts
 
 
-def request_from_api(prompt):
-    openai.api_key = API_KEY
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
-        max_tokens=100
+async def request_completion(prompt):
+    response = await openai.ChatCompletion.acreate(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": "Can you explain this to me in basic english?"},
+        ],
     )
-    return response.choices[0].text.strip()
+    return response["choices"][0].message.content
 
 
-def generateExplanations(prompts):
+async def generateExplanations(prompts):
     explanations = {}
-    for slide_index, prompt in enumerate(prompts):
-        response = request_from_api(prompt)
+    tasks = []
+
+    async def fetch_explanation(prompt, slide_index):
+        response = await request_completion(prompt)
         explanations[f"Slide {slide_index + 1}"] = response
+
+    for slide_index, prompt in enumerate(prompts):
+        task = asyncio.create_task(fetch_explanation(prompt, slide_index))
+        tasks.append(task)
+
+    await asyncio.gather(*tasks)
+
     return explanations
 
 
-def saveExplanations(explanations):
+def cleanExplanations(explanations):
+    cleaned_explanations = {
+        slide_title: explanation.replace('\n', '')
+        for slide_title, explanation in explanations.items()
+    }
+    return cleaned_explanations
+
+
+async def saveExplanations(explanations):
     output_file = "explanations.json"
+    cleaned_explanations = cleanExplanations(explanations)
+
     with open(output_file, "w") as file:
-        cleaned_explanations = {
-            slide_title: explanation.replace('\n', '')
-            for slide_title, explanation in explanations.items()
-        }
         json.dump(cleaned_explanations, file, indent=4)
 
     print(f"Explanations saved to {output_file}")
 
 
-def main():
+async def main():
     slide_data = handleInput()
-    prompts = createPrompt(slide_data["slide_data"], slide_data["title"])
-    explanations = generateExplanations(prompts)
-    saveExplanations(explanations)
+    prompts = create_prompt(slide_data["slide_data"], slide_data["title"])
+    explanations = await generateExplanations(prompts)  # Await explanations generation
+    await saveExplanations(explanations)
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
