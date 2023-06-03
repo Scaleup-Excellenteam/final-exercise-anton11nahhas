@@ -3,7 +3,6 @@ from datetime import datetime
 from dataclasses import dataclass
 
 
-
 @dataclass
 class Status:
     status: str
@@ -21,7 +20,8 @@ class PythonClient:
 
     def upload(self, file_path):
         url = self.base_url + '/upload'
-        response = requests.post(url, files={'file': open(file_path, 'rb')})
+        data = {'file_path': file_path}
+        response = requests.post(url, json=data)
 
         if response.ok:
             return response.json()['UID']
@@ -46,9 +46,20 @@ class PythonClient:
 
 
 def main():
-    response = requests.get("http://localhost:5000/")
+    client = PythonClient("http://localhost:5000/")
+    powerpoint_UID = client.upload("C:\Users\User\Desktop\ביןתאוריה למעשה\בין-תאוריה-למעשה-תרגיל2.pptx")
+    print(f"uploaded file with UID: {powerpoint_UID}")
 
-    print(response.text)
+    status = client.status(powerpoint_UID)
+    if status.is_done():
+        print("File upload is complete.")
+    else:
+        print("File upload is still in progress.")
+
+    print(f"Status: {status.status}")
+    print(f"Filename: {status.filename}")
+    print(f"Timestamp: {status.timestamp}")
+    print(f"Explanation: {status.explanation}")
 
 
 if __name__ == "__main__":
