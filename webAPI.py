@@ -9,7 +9,9 @@ import json
 webAPI = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
+OUTPUT_FOLDER = 'outputs'
 webAPI.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+webAPI.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 
 @webAPI.route("/upload", methods=['POST'])
@@ -22,39 +24,42 @@ def upload_file():
         return jsonify({'error': 'Empty filename'}), 400
 
     uid = str(uuid.uuid4())
-
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = secure_filename(file.filename)
-    new_filename = f"{filename}_{timestamp}_{uid}"
+    file_extension = os.path.splitext(file.filename)[1]
+    filename = os.path.basename(file.filename)
+    new_filename = f"{filename}_{uid}{file_extension}"
     file.save(os.path.join(webAPI.config['UPLOAD_FOLDER'], new_filename))
 
     return jsonify({'uid': uid}), 200
 
 
-@webAPI.route("/status/<int:uid>", methods=['GET'])
+@webAPI.route("/status/<string:uid>", methods=['GET'])
 def get_status(uid):
-    files = glob.glob(os.path.join(webAPI.config['UPLOAD_FOLDER'], f"*_{uid}"))
+    files = glob.glob(os.path.join(webAPI.config['OUTPUT_FOLDER'], f".*_{uid}_explanations.json"))
+
     if not files:
-        return jsonify({'status': 'not found'}), 404
+        filename = f"upload_{uid}_explanations.json"
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        formatted_timestamp = datetime.now().isoformat()
+        return jsonify({
+            'status': 'pending',
+            'filename': filename,
+            'timestamp': formatted_timestamp,
+            'explanation': 'None'
+        }), 200
 
     file_path = files[0]
     filename = os.path.basename(file_path)
     timestamp = filename.split('_')[1]
+    formatted_timestamp = datetime.strptime(timestamp, '%Y%m%d%H%M%S').isoformat()
 
-    output_filename = f"{filename}_output.json"
-    output_file_path = os.path.join(webAPI.config['UPLOAD_FOLDER'], output_filename)
-    if os.path.exists(output_file_path):
-        with open(output_file_path) as f:
-            explanation = json.load(f)
-        status = 'done'
-    else:
-        explanation = None
-        status = 'pending'
+    with open(file_path) as f:
+        explanation = json.load(f)
+    status = 'done'
 
     return jsonify({
         'status': status,
         'filename': filename,
-        'timestamp': timestamp,
+        'timestamp': formatted_timestamp,
         'explanation': explanation
     }), 200
 

@@ -20,18 +20,17 @@ class PythonClient:
 
     def upload(self, file_path):
         url = self.base_url + '/upload'
-        data = {'file_path': file_path}
-        response = requests.post(url, json=data)
+        files = {'file': open(file_path, 'rb')}
+        response = requests.post(url, files=files)
 
         if response.ok:
-            return response.json()['UID']
+            return response.json()['uid']
         else:
             raise Exception(f"Upload failed. Status code: {response.status_code}")
 
     def status(self, uid):
-        url = self.base_url + '/status'
-        params = {'uid': uid}
-        response = requests.get(url, params=params)
+        url = self.base_url + f'/status/{uid}'
+        response = requests.get(url)
 
         if response.ok:
             json_data = response.json()
@@ -46,20 +45,26 @@ class PythonClient:
 
 
 def main():
-    client = PythonClient("http://localhost:5000/")
-    powerpoint_UID = client.upload("C:\Users\User\Desktop\ביןתאוריה למעשה\בין-תאוריה-למעשה-תרגיל2.pptx")
-    print(f"uploaded file with UID: {powerpoint_UID}")
+    client = PythonClient("http://localhost:5000")
+    powerpoint_UID = client.upload(r"C:\Users\User\Desktop\ביןתאוריה למעשה\בין-תאוריה-למעשה-תרגיל2.pptx")
+    print(f"Uploaded file with UID: {powerpoint_UID}")
 
-    status = client.status(powerpoint_UID)
-    if status.is_done():
-        print("File upload is complete.")
-    else:
-        print("File upload is still in progress.")
+    while True:
+        status = client.status(str(powerpoint_UID))
+        print(f"Status: {status.status}")
+        print(f"Filename: {status.filename}")
+        print(f"Timestamp: {status.timestamp}")
 
-    print(f"Status: {status.status}")
-    print(f"Filename: {status.filename}")
-    print(f"Timestamp: {status.timestamp}")
-    print(f"Explanation: {status.explanation}")
+        if status.is_done():
+            print("File upload is complete.")
+            print(f"Explanation: {status.explanation}")
+            break
+        else:
+            print("File upload is still in progress.")
+
+        choice = input("Press 'q' to quit or any other key to check status again: ")
+        if choice.lower() == 'q':
+            break
 
 
 if __name__ == "__main__":

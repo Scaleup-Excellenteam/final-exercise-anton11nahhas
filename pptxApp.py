@@ -13,6 +13,8 @@ CONTENT = [
 ERROR_MESSAGE = "Something is wrong:"
 ENGINE_MODEL = "gpt-3.5-turbo"
 WRITE_TO_FILE_MODE = 'w'
+UPLOADS_FOLDER = 'uploads'
+OUTPUTS_FOLDER = 'outputs'
 
 
 async def parse_presentation(presentation_path):
@@ -96,19 +98,17 @@ def clean_text(text):
     return cleaned_text.strip()
 
 
-def save_explanations(explanations, presentation_path):
+def save_explanations(explanations, file_path):
     """
-    This method receives a list of strings each string implements an explanation, creates a JSON file and appends
-    the explanations to the file, in the format of (slide#: explanations).
-    :param: explanations: List of explanation retrieved from the API. (List of strings)
+    This method receives a list of strings, each string representing an explanation. It creates a JSON file and appends
+    the explanations to the file, using the original file name.
+    :param: explanations: List of explanations retrieved from the API. (List of strings)
+    :param: file_path: Path of the original file. (String)
     :return:
     """
-    # get the base name of power-point from path
-    presentation_name = os.path.basename(presentation_path)
-    # remove file's extension
-    presentation_name = os.path.splitext(presentation_name)[0]
-    # name the output file, with the name of power-point
-    output_file = f"{presentation_name}_explanations.json"
+    file_name = os.path.basename(file_path)
+    presentation_name = os.path.splitext(file_name)[0]
+    output_file = os.path.join(OUTPUTS_FOLDER, f"{presentation_name}_explanations.json")
     slide_explanations = {}
 
     for slide_num, explanation in enumerate(explanations, start=1):
@@ -116,47 +116,36 @@ def save_explanations(explanations, presentation_path):
         slide_explanations[slide_key] = explanation
 
     try:
-        if not os.path.exists(output_file):
-            open(output_file, WRITE_TO_FILE_MODE).close()
-
-        with open(output_file, WRITE_TO_FILE_MODE) as file:
+        with open(output_file, "w") as file:
             json.dump(slide_explanations, file, indent=4)
         print(f"Explanations saved to {output_file}")
     except IOError as error:
-        print(f"{ERROR_MESSAGE} Error saving explanations: {str(error)}")
+        print(f"Error saving explanations: {str(error)}")
 
 
-async def main(presentation_path):
-    """
-    This is the main method, uses asyncio handling to await the requests sent to the openai API, and handles saving
-    the responses to the output file.
-    :param: presentation_path: string of a power-point path. (string)
-    :return:
-    """
-    explanations = await parse_presentation(presentation_path)
-    save_explanations(explanations, presentation_path)
+
+async def process_file(file_path):
+    print(f"Processing file: {file_path}")
+    try:
+        explanations = await parse_presentation(file_path)
+        save_explanations(explanations, file_path)
+        print(f"Explanations saved for file: {file_path}")
+    except Exception as error:
+        error_message = f"{ERROR_MESSAGE} Error processing file: {str(error)}"
+        print(error_message)
 
 
-def get_input():
-    """
-    The method asks the user for a valid path.
-    :return: Return the input provided by user.
-    """
-    input_message = "Please provide the path of the PowerPoint presentation: "
-    return input(input_message)
+async def main_loop():
+    while True:
+
+        for file_name in os.listdir(UPLOADS_FOLDER):
+            file_path = os.path.join(UPLOADS_FOLDER, file_name)
+            if os.path.isfile(file_path):
+                await process_file(file_path)
+
+        await asyncio.sleep(10)
 
 
 if __name__ == "__main__":
-    """
-    The controller of the app, handles the inputs from the user, prints relevant messages and runs the main program.
-    """
-    presentation_path = get_input()
-    print("Processing PowerPoint...")
-    start_time = time.time()
-
-    asyncio.run(main(presentation_path))
-
-    end_time = time.time()
-    execution_time = end_time - start_time
-    minutes, seconds = divmod(execution_time, 60)
-    print(f"Execution time: {minutes:.0f} minutes {seconds:.2f} seconds")
+    print("Explainer started.")
+    asyncio.run(main_loop())
