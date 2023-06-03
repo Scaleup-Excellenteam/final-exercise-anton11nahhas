@@ -20,8 +20,8 @@ class PythonClient:
 
     def upload(self, file_path):
         url = self.base_url + '/upload'
-        data = {'file_path': file_path}
-        response = requests.post(url, json=data)
+        files = {'file': open(file_path, 'rb')}
+        response = requests.post(url, files=files)
 
         if response.ok:
             return response.json()['UID']
