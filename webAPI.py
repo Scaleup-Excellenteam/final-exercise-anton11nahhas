@@ -25,6 +25,11 @@ EMPTY_FILENAME = 'Empty filename'
 NO_EXPLANATION_FILE = 'No explanation file yet'
 
 
+def create_folder_if_not_exists(folder_path):
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+
 @webAPI.route("/upload", methods=['POST'])
 def upload_file():
     """
@@ -40,6 +45,8 @@ def upload_file():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': EMPTY_FILENAME}), ERROR
+
+    create_folder_if_not_exists(webAPI.config['UPLOAD_FOLDER'])
 
     timestamp = datetime.now().strftime(TIME_FORMAT)
     uid = str(uuid.uuid4())
@@ -66,6 +73,9 @@ def get_status(uid):
     output_folder = webAPI.config['OUTPUT_FOLDER']
     processed_folder = webAPI.config['PROCESSED_FOLDER']
     upload_folder = webAPI.config['UPLOAD_FOLDER']
+
+    create_folder_if_not_exists(output_folder)
+    create_folder_if_not_exists(processed_folder)
 
     upload_files = [file for file in os.listdir(upload_folder) if uid in file]
     processed_files = [file for file in os.listdir(processed_folder) if uid in file]

@@ -122,6 +122,9 @@ def save_explanations(explanations, file_path):
         slide_explanations[slide_key] = explanation
 
     try:
+        if not os.path.exists(OUTPUTS_FOLDER):
+            os.makedirs(OUTPUTS_FOLDER)
+
         with open(output_file, "w") as file:
             json.dump(slide_explanations, file, indent=4)
         print(f"Explanations saved to {output_file}")
@@ -140,6 +143,10 @@ def move_file(file_path, destination_folder):
     """
     file_name = os.path.basename(file_path)
     destination_path = os.path.join(destination_folder, file_name)
+
+    if not os.path.exists(destination_folder):
+        os.makedirs(destination_folder)
+
     shutil.move(file_path, destination_path)
     print(f"Moved file: {file_path} to {destination_path}")
 
