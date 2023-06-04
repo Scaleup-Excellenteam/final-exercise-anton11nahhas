@@ -1,3 +1,4 @@
+import shutil
 import time
 from datetime import datetime
 
@@ -17,6 +18,7 @@ ENGINE_MODEL = "gpt-3.5-turbo"
 WRITE_TO_FILE_MODE = 'w'
 UPLOADS_FOLDER = 'uploads'
 OUTPUTS_FOLDER = 'outputs'
+PROCESSED_FOLDER = 'processed'
 
 
 async def parse_presentation(presentation_path):
@@ -127,8 +129,11 @@ def save_explanations(explanations, file_path):
         print(f"Error saving explanations: {str(error)}")
 
 
-
-
+def move_file(file_path, destination_folder):
+    file_name = os.path.basename(file_path)
+    destination_path = os.path.join(destination_folder, file_name)
+    shutil.move(file_path, destination_path)
+    print(f"Moved file: {file_path} to {destination_path}")
 
 
 async def process_file(file_path):
@@ -136,6 +141,7 @@ async def process_file(file_path):
     try:
         explanations = await parse_presentation(file_path)
         save_explanations(explanations, file_path)
+        move_file(file_path, PROCESSED_FOLDER)
     except Exception as error:
         error_message = f"{ERROR_MESSAGE} Error processing file: {str(error)}"
         print(error_message)
@@ -143,7 +149,6 @@ async def process_file(file_path):
 
 async def main_loop():
     while True:
-
         for file_name in os.listdir(UPLOADS_FOLDER):
             file_path = os.path.join(UPLOADS_FOLDER, file_name)
             if os.path.isfile(file_path):

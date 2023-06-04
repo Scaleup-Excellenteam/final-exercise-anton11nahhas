@@ -7,9 +7,11 @@ import json
 webAPI = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
+PROCESSED_FOLDER = 'processed'
 OUTPUT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
 webAPI.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 webAPI.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
+webAPI.config['PROCESSED_FOLDER'] = PROCESSED_FOLDER
 
 
 @webAPI.route("/upload", methods=['POST'])
@@ -34,11 +36,13 @@ def upload_file():
 def get_status(uid):
     print(uid)
     output_folder = webAPI.config['OUTPUT_FOLDER']
+    processed_folder = webAPI.config['PROCESSED_FOLDER']
     upload_folder = webAPI.config['UPLOAD_FOLDER']
     upload_files = [file for file in os.listdir(upload_folder) if uid in file]
-    files = [file for file in os.listdir(output_folder) if uid in file]
+    processed_files = [file for file in os.listdir(processed_folder) if uid in file]
+    output_files = [file for file in os.listdir(output_folder) if uid in file]
 
-    if not upload_files:
+    if not processed_files and not upload_files:
         filename = "no such file"
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         formatted_timestamp = datetime.now().isoformat()
@@ -47,9 +51,9 @@ def get_status(uid):
             'filename': filename,
             'timestamp': formatted_timestamp,
             'explanation': 'None'
-        }), 200
+        }), 404
 
-    if not files:
+    if not output_files:
         filename = "no explanation file yet"
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         formatted_timestamp = datetime.now().isoformat()
@@ -60,7 +64,7 @@ def get_status(uid):
             'explanation': 'None'
         }), 200
 
-    file_path = os.path.join(output_folder, files[0])
+    file_path = os.path.join(output_folder, output_files[0])
     filename = os.path.basename(file_path)
     timestamp = filename.split('_')[1]
     formatted_timestamp = datetime.strptime(timestamp, '%Y%m%d%H%M%S').isoformat()
