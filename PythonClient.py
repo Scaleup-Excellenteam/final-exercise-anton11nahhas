@@ -50,7 +50,7 @@ def main():
     print(f"Uploaded file with UID: {powerpoint_UID}")
 
     while True:
-        status = client.status(str("123"))
+        status = client.status(str(powerpoint_UID))
         print(f"Status: {status.status}")
         print(f"Filename: {status.filename}")
         print(f"Timestamp: {status.timestamp}")

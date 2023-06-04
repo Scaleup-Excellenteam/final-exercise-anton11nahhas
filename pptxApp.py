@@ -130,6 +130,14 @@ def save_explanations(explanations, file_path):
 
 
 def move_file(file_path, destination_folder):
+    """
+    This method receives a file path, and a destination folder. The method moves the processed folder from the
+    'uploads' folder to the 'processed' folder in order to prevent the explainer to scan old files that have been
+    already processed
+    :param file_path: path of a file (string)
+    :param destination_folder: name of the processed folder (string)
+    :return:
+    """
     file_name = os.path.basename(file_path)
     destination_path = os.path.join(destination_folder, file_name)
     shutil.move(file_path, destination_path)
@@ -137,6 +145,12 @@ def move_file(file_path, destination_folder):
 
 
 async def process_file(file_path):
+    """
+    This method receives a file_path, calls the needed functions to explain the contents of the power-point, save and
+    moves the processed file. it throws an exception if it could not process a file.
+    :param file_path: a file path from the 'uploads' folder (string)
+    :return:
+    """
     print(f"Processing file: {file_path}")
     try:
         explanations = await parse_presentation(file_path)
@@ -148,6 +162,11 @@ async def process_file(file_path):
 
 
 async def main_loop():
+    """
+    This method keeps running in an infinite loop, each iteration it scans the 'uploads' folder for a new file to
+    process, explains the content of the file, and then sleeps for 10 seconds
+    :return:
+    """
     while True:
         for file_name in os.listdir(UPLOADS_FOLDER):
             file_path = os.path.join(UPLOADS_FOLDER, file_name)
