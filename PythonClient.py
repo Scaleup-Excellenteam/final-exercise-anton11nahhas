@@ -46,24 +46,28 @@ class PythonClient:
 
 def main():
     client = PythonClient("http://localhost:5000")
-    powerpoint_UID = client.upload(r"C:\Users\User\Desktop\New folder\test.pptx")
-    print(f"Uploaded file with UID: {powerpoint_UID}")
 
     while True:
-        status = client.status(str(powerpoint_UID))
-        print(f"Status: {status.status}")
-        print(f"Filename: {status.filename}")
-        print(f"Timestamp: {status.timestamp}")
+        task = input("which task do you want to use? 'u' for uploading new files, 's' to get the status of a file,"
+                     "or 'q' to exit: ")
+        if task.lower() == 'u':
+            powerpoint_path = input("Enter a path for a powerpoint presentation: ")
+            powerpoint_UID = client.upload(powerpoint_path)
+            print(f"Uploaded file with UID: {powerpoint_UID}, please save the UID so you can get the status of the "
+                  f"file when needed.")
+        elif task.lower() == 's':
+            powerpoint_UID = input("Please enter the UID of the file to get its status: ")
+            status = client.status(str(powerpoint_UID))
+            print(f"Status: {status.status}")
+            print(f"Filename: {status.filename}")
+            print(f"Timestamp: {status.timestamp}")
 
-        if status.is_done():
-            print("File upload is complete.")
-            print(f"Explanation: {status.explanation}")
-            break
-        else:
-            print("File upload is still in progress.")
-
-        choice = input("Press 'q' to quit or any other key to check status again: ")
-        if choice.lower() == 'q':
+            if status.is_done():
+                print("File upload is complete.")
+                print(f"Explanation: {status.explanation}")
+            else:
+                print("File upload is still in progress.")
+        elif task.lower() == 'q':
             break
 
 
