@@ -46,7 +46,7 @@ class PythonClient:
 
 def main():
     client = PythonClient("http://localhost:5000")
-    powerpoint_UID = client.upload(r"C:\Users\User\Desktop\ביןתאוריה למעשה\בין-תאוריה-למעשה-תרגיל2.pptx")
+    powerpoint_UID = client.upload(r"C:\Users\User\Desktop\New folder\test.pptx")
     print(f"Uploaded file with UID: {powerpoint_UID}")
 
     while True:

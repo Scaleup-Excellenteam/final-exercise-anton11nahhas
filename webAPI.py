@@ -2,14 +2,13 @@ import uuid
 import os
 from datetime import datetime
 from flask import Flask, request, jsonify
-from werkzeug.utils import secure_filename
 import glob
 import json
 
 webAPI = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'outputs'
+OUTPUT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
 webAPI.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 webAPI.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
@@ -23,18 +22,22 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': 'Empty filename'}), 400
 
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     uid = str(uuid.uuid4())
-    file_extension = os.path.splitext(file.filename)[1]
-    filename = os.path.basename(file.filename)
-    new_filename = f"{filename}_{uid}{file_extension}"
+    original_filename, file_extension = os.path.splitext(file.filename)
+    new_filename = f"{original_filename}_{timestamp}_{uid}{file_extension}"
     file.save(os.path.join(webAPI.config['UPLOAD_FOLDER'], new_filename))
 
     return jsonify({'uid': uid}), 200
 
 
+
+
 @webAPI.route("/status/<string:uid>", methods=['GET'])
 def get_status(uid):
-    files = glob.glob(os.path.join(webAPI.config['OUTPUT_FOLDER'], f".*_{uid}_explanations.json"))
+    print(uid)
+    output_folder = webAPI.config['OUTPUT_FOLDER']
+    files = [file for file in os.listdir(output_folder) if uid in file]
 
     if not files:
         filename = f"upload_{uid}_explanations.json"
@@ -47,7 +50,7 @@ def get_status(uid):
             'explanation': 'None'
         }), 200
 
-    file_path = files[0]
+    file_path = os.path.join(output_folder, files[0])
     filename = os.path.basename(file_path)
     timestamp = filename.split('_')[1]
     formatted_timestamp = datetime.strptime(timestamp, '%Y%m%d%H%M%S').isoformat()

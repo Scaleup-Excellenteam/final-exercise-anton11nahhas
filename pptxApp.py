@@ -1,4 +1,6 @@
 import time
+from datetime import datetime
+
 from pptx import Presentation
 import openai
 import json
@@ -107,7 +109,9 @@ def save_explanations(explanations, file_path):
     :return:
     """
     file_name = os.path.basename(file_path)
-    presentation_name = os.path.splitext(file_name)[0]
+    presentation_name, extension = os.path.splitext(file_name)
+    uid = re.search(r"\w{8}-\w{4}-\w{4}-\w{4}-\w{12}", presentation_name).group(0)
+    print(presentation_name)
     output_file = os.path.join(OUTPUTS_FOLDER, f"{presentation_name}_explanations.json")
     slide_explanations = {}
 
@@ -124,12 +128,14 @@ def save_explanations(explanations, file_path):
 
 
 
+
+
+
 async def process_file(file_path):
     print(f"Processing file: {file_path}")
     try:
         explanations = await parse_presentation(file_path)
         save_explanations(explanations, file_path)
-        print(f"Explanations saved for file: {file_path}")
     except Exception as error:
         error_message = f"{ERROR_MESSAGE} Error processing file: {str(error)}"
         print(error_message)
