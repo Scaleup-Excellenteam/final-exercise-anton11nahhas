@@ -2,7 +2,6 @@ import uuid
 import os
 from datetime import datetime
 from flask import Flask, request, jsonify
-import glob
 import json
 
 webAPI = Flask(__name__)
@@ -31,16 +30,27 @@ def upload_file():
     return jsonify({'uid': uid}), 200
 
 
-
-
 @webAPI.route("/status/<string:uid>", methods=['GET'])
 def get_status(uid):
     print(uid)
     output_folder = webAPI.config['OUTPUT_FOLDER']
+    upload_folder = webAPI.config['UPLOAD_FOLDER']
+    upload_files = [file for file in os.listdir(upload_folder) if uid in file]
     files = [file for file in os.listdir(output_folder) if uid in file]
 
+    if not upload_files:
+        filename = "no such file"
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        formatted_timestamp = datetime.now().isoformat()
+        return jsonify({
+            'status': 'not found',
+            'filename': filename,
+            'timestamp': formatted_timestamp,
+            'explanation': 'None'
+        }), 200
+
     if not files:
-        filename = f"upload_{uid}_explanations.json"
+        filename = "no explanation file yet"
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         formatted_timestamp = datetime.now().isoformat()
         return jsonify({
