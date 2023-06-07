@@ -19,10 +19,10 @@ PENDING = 'pending'
 DONE = 'done'
 NONE = 'None'
 TIME_FORMAT = '%Y%m%d%H%M%S'
-NOT_FOUND_MESSAGE = 'not found'
-NO_FILE_ATTACHED = 'No file attached'
-EMPTY_FILENAME = 'Empty filename'
-NO_EXPLANATION_FILE = 'No explanation file yet'
+NOT_FOUND_MESSAGE = "not found"
+NO_FILE_ATTACHED = "No file attached"
+EMPTY_FILENAME = "Empty filename"
+NO_EXPLANATION_FILE = "No explanation file"
 
 
 def create_folder_if_not_exists(folder_path):
@@ -81,27 +81,25 @@ def get_status(uid):
     processed_files = [file for file in os.listdir(processed_folder) if uid in file]
     output_files = [file for file in os.listdir(output_folder) if uid in file]
 
+    timestamp = datetime.now().strftime(TIME_FORMAT)
+    formatted_timestamp = datetime.now().isoformat()
+
     if not processed_files and not upload_files:
-        return jsonify({'status': NOT_FOUND_MESSAGE}), NOT_FOUND
+        return generate_response(NOT_FOUND_MESSAGE, NO_EXPLANATION_FILE, formatted_timestamp, NONE, NOT_FOUND)
 
     if not output_files:
-        filename = NO_EXPLANATION_FILE
-        timestamp = datetime.now().strftime(TIME_FORMAT)
-        formatted_timestamp = datetime.now().isoformat()
-        return generate_response(PENDING, filename, formatted_timestamp, NONE)
+        return generate_response(PENDING, NO_EXPLANATION_FILE, formatted_timestamp, NONE, OK)
 
     file_path = os.path.join(output_folder, output_files[0])
     filename = os.path.basename(file_path)
-    timestamp = filename.split('_')[1]
-    formatted_timestamp = datetime.strptime(timestamp, TIME_FORMAT).isoformat()
 
-    with open(file_path) as f:
-        explanation = json.load(f)
+    with open(file_path) as file:
+        explanation = json.load(file)
 
-    return generate_response(DONE, filename, formatted_timestamp, explanation)
+    return generate_response(DONE, filename, formatted_timestamp, explanation, OK)
 
 
-def generate_response(status, filename, formatted_timestamp, explanation):
+def generate_response(status, filename, formatted_timestamp, explanation, status_code):
     """
     This method handles the return response for the get_status end-point, it receives a status, filename, timestamp
     and the explanations. Possible values of each of those:
@@ -122,7 +120,7 @@ def generate_response(status, filename, formatted_timestamp, explanation):
         'filename': filename,
         'timestamp': formatted_timestamp,
         'explanation': explanation
-    }), OK
+    }), status_code
 
 
 if __name__ == "__main__":

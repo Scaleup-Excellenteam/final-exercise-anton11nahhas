@@ -1,6 +1,11 @@
 import requests
 from datetime import datetime
 from dataclasses import dataclass
+import os
+
+NOT_FOUND = 404
+ERROR = 400
+OK = 200
 
 
 @dataclass
@@ -32,6 +37,16 @@ class Status:
         return self.status == 'done'
 
 
+def handle_response(response):
+    json_data = response.json()
+    return Status(
+        status=json_data['status'],
+        filename=json_data['filename'],
+        timestamp=datetime.fromisoformat(json_data['timestamp']),
+        explanation=json_data['explanation']
+    )
+
+
 class PythonClient:
     """
     The class has a single member, the base_url, which is the url and the port the web API is listening to.
@@ -49,6 +64,7 @@ class PythonClient:
         :param file_path: path of the power-point presentation (String)
         :return: UID created by web API (json)
         """
+
         url = self.base_url + '/upload'
         files = {'file': open(file_path, 'rb')}
         response = requests.post(url, files=files)
@@ -69,13 +85,12 @@ class PythonClient:
         response = requests.get(url)
 
         if response.ok:
-            json_data = response.json()
-            return Status(
-                status=json_data['status'],
-                filename=json_data['filename'],
-                timestamp=datetime.fromisoformat(json_data['timestamp']),
-                explanation=json_data['explanation']
-            )
+            return handle_response(response)
+
+        elif response.status_code == NOT_FOUND:
+            print("uid not found")
+            return handle_response(response)
+
         else:
             raise Exception(f"Status retrieval failed. Status code: {response.status_code}")
 
@@ -92,8 +107,15 @@ def main():
     while True:
         task = input("which task do you want to use? 'u' for uploading new files, 's' to get the status of a file,"
                      "or 'q' to exit: ")
-        if task.lower() == 'u':
+        if not task.lower() == 'u' and not task.lower() == 's' and not task.lower() == 'q':
+            print("please enter a valid option.")
+            continue
+        elif task.lower() == 'u':
             powerpoint_path = input("Enter a path for a powerpoint presentation: ")
+            if not os.path.exists(powerpoint_path):
+                print("the path provided is not valid please provide a file on you computer.")
+                continue
+
             powerpoint_UID = client.upload(powerpoint_path)
             print(f"Uploaded file with UID: {powerpoint_UID}, please save the UID so you can get the status of the "
                   f"file when needed.")
