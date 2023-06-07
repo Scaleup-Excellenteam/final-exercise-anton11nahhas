@@ -8,7 +8,7 @@ webAPI = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
 PROCESSED_FOLDER = 'processed'
-OUTPUT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'outputs')
+OUTPUT_FOLDER = 'outputs'
 webAPI.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 webAPI.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 webAPI.config['PROCESSED_FOLDER'] = PROCESSED_FOLDER
