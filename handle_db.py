@@ -20,8 +20,8 @@ class User(Base):
     """
     __tablename__ = "users_table"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(30))
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    email: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
     uploads: Mapped[List["Upload"]] = relationship(back_populates="user")
 
 
@@ -40,12 +40,12 @@ class Upload(Base):
     """
     __tablename__ = "uploads_table"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    uid: Mapped[UUID] = mapped_column(UUID)
-    file_name: Mapped[str] = mapped_column(String(10))
-    upload_time: Mapped[datetime] = mapped_column(String)
-    finish_time: Mapped[datetime] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String)
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    uid: Mapped[UUID] = mapped_column(nullable=False, unique=True)
+    file_name: Mapped[str] = mapped_column(String, default="Default_file")
+    upload_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
+    finish_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
+    status: Mapped[str] = mapped_column(String, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("user_table.id"))
     user: Mapped["User"] = relationship(back_populates="uploads")
 
