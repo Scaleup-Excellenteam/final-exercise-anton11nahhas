@@ -2,6 +2,7 @@ import requests
 from datetime import datetime
 from dataclasses import dataclass
 import os
+import re
 
 NOT_FOUND = 404
 ERROR = 400
@@ -55,7 +56,7 @@ class PythonClient:
     def __init__(self, base_url):
         self.base_url = base_url
 
-    def upload(self, file_path):
+    def upload(self, file_path, email):
         """
         The upload method receives a file_path which is the power-point presentation the user wants to be explained.
         the method handles a POST fetch to the /upload end-point. The method as well uses the 'requests' module to
@@ -65,7 +66,9 @@ class PythonClient:
         :return: UID created by web API (json)
         """
 
-        url = self.base_url + '/upload'
+        if not email:
+            email = ""
+        url = self.base_url + f'/upload/{email}'
         files = {'file': open(file_path, 'rb')}
         response = requests.post(url, files=files)
 
@@ -74,25 +77,55 @@ class PythonClient:
         else:
             raise Exception(f"Upload failed. Status code: {response.status_code}")
 
-    def status(self, uid):
+    def status(self, uid=None, email=None, filename=None):
         """
-        The status method receives an uid, adds it as a parameter to the request, and fetches a get request to the
-        /get_status end-point. The response received from the request is then handled and returned as json.
-        :param uid: UID of the wanted file (String).
-        :return: json response that has data about the status, filename, timestamp and explanations (JSON).
+        The status method retrieves the status based on either UID or email and filename.
+        If UID is provided, it fetches the status using the UID.
+        If email and filename are provided, it fetches the status using email and filename as parameters.
+        :param uid: UID of the file (optional)
+        :param email: Email of the file (optional)
+        :param filename: Filename of the file (optional)
+        :return: Status object containing the status, filename, timestamp, and explanation
         """
-        url = self.base_url + f'/status/{uid}'
-        response = requests.get(url)
+
+        if uid:
+            url = self.base_url + f'/status/{uid}'
+            response = requests.get(url)
+        elif email and filename:
+            url = self.base_url + '/status'
+            params = {
+                'email': email,
+                'filename': filename
+            }
+            response = requests.get(url, params=params)
+        else:
+            raise ValueError("Please provide either UID or email and filename.")
 
         if response.ok:
             return handle_response(response)
-
         elif response.status_code == NOT_FOUND:
-            print("uid not found")
+            print("UID not found")
             return handle_response(response)
-
         else:
             raise Exception(f"Status retrieval failed. Status code: {response.status_code}")
+
+
+def is_email_format(string):
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    match = re.match(pattern, string)
+    return match is not None
+
+
+def print_status_results(status):
+    print(f"Status: {status.status}")
+    print(f"Filename: {status.filename}")
+    print(f"Timestamp: {status.timestamp}")
+
+    if status.is_done():
+        print("File upload is complete.")
+        print(f"Explanation: {status.explanation}")
+    else:
+        print("File upload is still in progress.")
 
 
 def main():
@@ -111,26 +144,38 @@ def main():
             print("please enter a valid option.")
             continue
         elif task.lower() == 'u':
+            user_email = input("Please provide your email(optional, press enter for anonymous upload): ")
+            if user_email:
+                if not is_email_format(user_email):
+                    print("Please provide a valid email.")
+                    continue
+
             powerpoint_path = input("Enter a path for a powerpoint presentation: ")
             if not os.path.exists(powerpoint_path):
                 print("the path provided is not valid please provide a file on you computer.")
                 continue
 
-            powerpoint_UID = client.upload(powerpoint_path)
+            powerpoint_UID = client.upload(powerpoint_path, user_email)
             print(f"Uploaded file with UID: {powerpoint_UID}, please save the UID so you can get the status of the "
                   f"file when needed.")
         elif task.lower() == 's':
-            powerpoint_UID = input("Please enter the UID of the file to get its status: ")
-            status = client.status(str(powerpoint_UID))
-            print(f"Status: {status.status}")
-            print(f"Filename: {status.filename}")
-            print(f"Timestamp: {status.timestamp}")
-
-            if status.is_done():
-                print("File upload is complete.")
-                print(f"Explanation: {status.explanation}")
+            status_task = input("do you want to retrieve status by uid ('1') or by providing an email and a file_name('2')")
+            if status_task == '1':
+                powerpoint_UID = input("Please enter the UID of the file to get its status: ")
+                status = client.status(uid=str(powerpoint_UID))
+                print_status_results(status)
+            elif status_task == '2':
+                email = input("Please enter an email: ")
+                if not is_email_format(email):
+                    print("Please provide a valid email.")
+                    continue
+                file_name = input("Please enter the desired file_name: ")
+                status = client.status(email=email, filename=file_name)
+                print_status_results(status)
             else:
-                print("File upload is still in progress.")
+                print("please enter a valid option, '1' for uid, '2' for a file_name and email.")
+                continue
+
         elif task.lower() == 'q':
             break
 

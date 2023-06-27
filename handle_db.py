@@ -66,10 +66,18 @@ class Upload(Base):
     def upload_path(self) -> str:
         return f"/uploads/{self.uid}/{self.file_name}"
 
+    def set_upload_finish_time(self):
+        self.finish_time = datetime.now()
+
+    def set_upload_status(self, status: str):
+        self.status = status
+
 
 
 def main():
-    engine = create_engine("sqlite://", echo=True)
+    engine = create_engine("sqlite:///db/my_database.db")
+    Session = sessionmaker(bind=engine)
+    session = Session()
 
     Base.metadata.create_all(engine)
 
