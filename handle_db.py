@@ -1,5 +1,7 @@
+import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, ForeignKey, Column, String, Integer, CHAR, UUID, create_engine, DateTime
+from sqlalchemy import create_engine, ForeignKey, Column, String, Integer, CHAR, UUID, create_engine, DateTime, \
+    CheckConstraint
 from sqlalchemy.orm import sessionmaker, Mapped, mapped_column, relationship, DeclarativeBase
 from typing import List, Optional
 
@@ -20,9 +22,9 @@ class User(Base):
     """
     __tablename__ = "users_table"
 
-    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    email: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
-    uploads: Mapped[List["Upload"]] = relationship(back_populates="user")
+    id = mapped_column(Integer, primary_key=True, unique=True)
+    email = mapped_column(String(30), unique=True, nullable=False)
+    uploads = relationship('Upload', back_populates="user", cascade="all, delete-orphan")
 
 
 class Upload(Base):
@@ -40,14 +42,30 @@ class Upload(Base):
     """
     __tablename__ = "uploads_table"
 
-    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    uid: Mapped[UUID] = mapped_column(nullable=False, unique=True)
-    file_name: Mapped[str] = mapped_column(String, default="Default_file")
-    upload_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
-    finish_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user_table.id"))
-    user: Mapped["User"] = relationship(back_populates="uploads")
+    id = mapped_column(Integer, primary_key=True, unique=True)
+    uid = mapped_column(UUID, nullable=False, unique=True)
+    file_name = mapped_column(String, default="Default_file")
+    upload_time = mapped_column(DateTime, nullable=False)
+    finish_time = mapped_column(DateTime)
+    status = mapped_column(String, nullable=False)
+    user_id = mapped_column(Integer, ForeignKey("user_table.id"), default="N/A", nullable=False)
+    user = relationship('User', back_populates="uploads", cascade="all")
+
+    __table_args__ = (
+        CheckConstraint(finish_time >= upload_time, name='check_finish_time_after_upload_time')
+    )
+
+    def __init__(self, filename: str, status: str, uid: uuid, user_id: int = None):
+        self.file_name = filename
+        self.status = status
+        self.uid = uuid.uuid4()
+        self.upload_time = datetime.now()
+        self.uid = uid
+        self.user_id = user_id
+
+    def upload_path(self) -> str:
+        return f"/uploads/{self.uid}/{self.file_name}"
+
 
 
 def main():
