@@ -1,13 +1,12 @@
 import shutil
-import time
-from datetime import datetime
-
+from sqlalchemy.orm import Session
 from pptx import Presentation
 import openai
 import json
 import os
 import re
 import asyncio
+from handle_db import Upload, engine
 
 openai.api_key = os.environ.get('API_KEY')
 CONTENT = [
@@ -19,6 +18,19 @@ WRITE_TO_FILE_MODE = 'w'
 UPLOADS_FOLDER = 'uploads'
 OUTPUTS_FOLDER = 'outputs'
 PROCESSED_FOLDER = 'processed'
+EXPLANATION_SAVED = "Explanations saved to"
+EXPLANATION_SAVED_ERROR = "Error saving explanations:"
+PATH_NOT_FOUND = "the path you provided does not exist."
+PROCESS_SLIDE_ERROR = "Error processing slide:"
+MOVED_FILE = "Moved file:"
+PROCESSING_FILE = "Processing file:"
+DONE_STATUS = 'done'
+PROCESSING_STATUS = 'processing'
+PENDING_STATUS = 'pending'
+PROCESS_FILE_ERROR = "Error processing file"
+EXPLAINER_STARTED_MESSAGE = "Explainer started."
+CHOICES = "choices"
+FIRST_ELEMENT = 0
 
 
 async def parse_presentation(presentation_path):
@@ -30,7 +42,7 @@ async def parse_presentation(presentation_path):
     """
     # check if path is available
     if not os.path.isfile(presentation_path):
-        print(f"{ERROR_MESSAGE} the path you provided does not exist.")
+        print(f"{ERROR_MESSAGE} {PATH_NOT_FOUND}")
         return []
 
     prs = Presentation(presentation_path)
@@ -52,7 +64,7 @@ async def parse_slide_of_pptx(slide):
         response = await request_completion(slide)
         return response
     except Exception as error:
-        error_message = f"{ERROR_MESSAGE} Error processing slide: {str(error)}"
+        error_message = f"{ERROR_MESSAGE} {PROCESS_SLIDE_ERROR} {str(error)}"
         return error_message
 
 
@@ -85,7 +97,7 @@ async def request_completion(slide):
         model=ENGINE_MODEL,
         messages=CONTENT
     )
-    content = response["choices"][0].message.content
+    content = response[CHOICES][FIRST_ELEMENT].message.content
     cleaned_content = clean_text(content)
     return cleaned_content
 
@@ -112,9 +124,7 @@ def save_explanations(explanations, file_path):
     """
     file_name = os.path.basename(file_path)
     presentation_name, extension = os.path.splitext(file_name)
-    uid = re.search(r"\w{8}-\w{4}-\w{4}-\w{4}-\w{12}", presentation_name).group(0)
-    print(presentation_name)
-    output_file = os.path.join(OUTPUTS_FOLDER, f"{presentation_name}_explanations.json")
+    output_file = os.path.join(OUTPUTS_FOLDER, f"{presentation_name}.json")
     slide_explanations = {}
 
     for slide_num, explanation in enumerate(explanations, start=1):
@@ -125,11 +135,11 @@ def save_explanations(explanations, file_path):
         if not os.path.exists(OUTPUTS_FOLDER):
             os.makedirs(OUTPUTS_FOLDER)
 
-        with open(output_file, "w") as file:
+        with open(output_file, WRITE_TO_FILE_MODE) as file:
             json.dump(slide_explanations, file, indent=4)
-        print(f"Explanations saved to {output_file}")
+        print(f"{EXPLANATION_SAVED} {output_file}")
     except IOError as error:
-        print(f"Error saving explanations: {str(error)}")
+        print(f"{EXPLANATION_SAVED_ERROR} {str(error)}")
 
 
 def move_file(file_path, destination_folder):
@@ -148,41 +158,53 @@ def move_file(file_path, destination_folder):
         os.makedirs(destination_folder)
 
     shutil.move(file_path, destination_path)
-    print(f"Moved file: {file_path} to {destination_path}")
+    print(f"{MOVED_FILE} {file_path} to {destination_path}")
 
 
-async def process_file(file_path):
+async def process_file(file_path, file_processing):
     """
     This method receives a file_path, calls the needed functions to explain the contents of the power-point, save and
     moves the processed file. it throws an exception if it could not process a file.
-    :param file_path: a file path from the 'uploads' folder (string)
+    :param: file_processing: upload object representing the file being processed (Upload)
+    :param: file_path: a file path from the 'uploads' folder (string)
     :return:
     """
-    print(f"Processing file: {file_path}")
+    print(f"{PROCESSING_FILE} {file_path}")
     try:
         explanations = await parse_presentation(file_path)
         save_explanations(explanations, file_path)
         move_file(file_path, PROCESSED_FOLDER)
+
+        file_processing.set_file_status(DONE_STATUS)
+        file_processing.set_upload_finish_time()
     except Exception as error:
-        error_message = f"{ERROR_MESSAGE} Error processing file: {str(error)}"
+        error_message = f"{ERROR_MESSAGE} {PROCESS_FILE_ERROR} {str(error)}"
         print(error_message)
 
 
 async def main_loop():
     """
-    This method keeps running in an infinite loop, each iteration it scans the 'uploads' folder for a new file to
-    process, explains the content of the file, and then sleeps for 10 seconds
+    This method keeps running in an infinite loop, each iteration it searches for all pending files using sql queries
+    for each file found, it retrieves it from the 'uploads' folder, updates its status to processing and then
+    waits for it to be processed.
+
     :return:
     """
     while True:
-        for file_name in os.listdir(UPLOADS_FOLDER):
-            file_path = os.path.join(UPLOADS_FOLDER, file_name)
-            if os.path.isfile(file_path):
-                await process_file(file_path)
-
         await asyncio.sleep(10)
+        with Session(engine) as session:
+            pending_files = session.query(Upload).filter_by(status=PENDING_STATUS).all()
+            if pending_files:
+                for pending_file in pending_files:
+                    pending_file.set_file_status(PROCESSING_STATUS)
+                    session.add(pending_file)
+                    session.commit()
+                    file_path = pending_file.get_upload_path()
+                    await process_file(file_path, pending_file)
+                    session.add(pending_file)
+                    session.commit()
 
 
 if __name__ == "__main__":
-    print("Explainer started.")
+    print(EXPLAINER_STARTED_MESSAGE)
     asyncio.run(main_loop())

@@ -1,13 +1,11 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, ForeignKey, Column, String, Integer, CHAR, UUID, create_engine, DateTime, \
-    CheckConstraint
-from sqlalchemy.orm import sessionmaker, Mapped, mapped_column, relationship, DeclarativeBase
-from typing import List, Optional
+from sqlalchemy import ForeignKey, String, Integer, UUID, create_engine, DateTime, CheckConstraint
+from sqlalchemy.orm import sessionmaker, mapped_column, relationship, DeclarativeBase
+from sqlalchemy.ext.declarative import declarative_base
 
 
-class Base(DeclarativeBase):
-    pass
+Base = declarative_base()
 
 
 class User(Base):
@@ -23,8 +21,8 @@ class User(Base):
     __tablename__ = "users_table"
 
     id = mapped_column(Integer, primary_key=True, unique=True)
-    email = mapped_column(String(30), unique=True, nullable=False)
-    uploads = relationship('Upload', back_populates="user", cascade="all, delete-orphan")
+    email = mapped_column(String(30), unique=True, default="anonymous", nullable=False)
+    uploads = relationship('Upload', cascade="all, delete-orphan")
 
 
 class Upload(Base):
@@ -43,44 +41,55 @@ class Upload(Base):
     __tablename__ = "uploads_table"
 
     id = mapped_column(Integer, primary_key=True, unique=True)
-    uid = mapped_column(UUID, nullable=False, unique=True)
+    uid = mapped_column(String, nullable=False, unique=True)
     file_name = mapped_column(String, default="Default_file")
     upload_time = mapped_column(DateTime, nullable=False)
     finish_time = mapped_column(DateTime)
     status = mapped_column(String, nullable=False)
-    user_id = mapped_column(Integer, ForeignKey("user_table.id"), default="N/A", nullable=False)
-    user = relationship('User', back_populates="uploads", cascade="all")
+    user_id = mapped_column(Integer, ForeignKey('users_table.id'), default="N/A", nullable=False)
+    user = relationship('User', back_populates="uploads")
 
-    __table_args__ = (
-        CheckConstraint(finish_time >= upload_time, name='check_finish_time_after_upload_time')
-    )
-
-    def __init__(self, filename: str, status: str, uid: uuid, user_id: int = None):
-        self.file_name = filename
+    def __init__(self, file_name, status, uid, user_id=None):
+        """
+        Custom Constructor for the database that only receives desired objects.
+        :param: file_name: the name of the uploaded file (String)
+        :param: status: the current status of a file (String)
+        :param: uid: the uid of the file (String)
+        :param: user_id: optional variable of the user id, if the user does not exist then its none.
+        """
+        self.file_name = file_name
         self.status = status
-        self.uid = uuid.uuid4()
         self.upload_time = datetime.now()
         self.uid = uid
         self.user_id = user_id
 
-    def upload_path(self) -> str:
-        return f"/uploads/{self.uid}/{self.file_name}"
-
     def set_upload_finish_time(self):
+        """
+        This method sets the time when a file finished uploading
+        :return:
+        """
         self.finish_time = datetime.now()
 
-    def set_upload_status(self, status: str):
+    def set_file_status(self, status):
+        """
+        This method receives a status of a file and updates it in the database
+        :param status: status of a file to be updated (String)
+        :return:
+        """
         self.status = status
 
+    def get_upload_path(self):
+        """
+        This method returns the path of a certain file in the 'uploads' folder, according to its uid.
+        :return: file path (String)
+        """
+        return f"uploads/{self.uid}.pptx"
 
 
-def main():
-    engine = create_engine("sqlite:///db/my_database.db")
-    Session = sessionmaker(bind=engine)
-    session = Session()
+engine = create_engine("sqlite:///db/my_database.db", echo=True)
+Session = sessionmaker(bind=engine)
+session = Session()
 
-    Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)
 
 
-if __name__ == "__main__":
-    main()
