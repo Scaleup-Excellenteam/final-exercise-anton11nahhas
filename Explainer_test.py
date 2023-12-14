@@ -3,7 +3,7 @@ import subprocess
 
 from PythonClient import PythonClient
 
-
+#"C:\Users\User\Desktop\bigDataSeminar\recommendationSystems.pptx"
 class SystemTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -35,7 +35,7 @@ class SystemTest(unittest.TestCase):
         """
         client = PythonClient("http://localhost:5000")
 
-        powerpoint_path = r"C:\Users\User\Desktop\New folder\test.pptx"
+        powerpoint_path = r"C:\Users\User\Desktop\test\test.pptx"
         uid = client.upload(powerpoint_path)
         self.assertIsNotNone(uid, "UID not found in the output")
 
